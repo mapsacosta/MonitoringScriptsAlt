@@ -80,7 +80,7 @@ def getSRMEndpoints():
             if j.attrib["flavour"] == 'SRM':
                srms.append(j.attrib["hostname"])
         tier = getTier(siteName)
-        if (tier == 1 or tier == 2) and srms:
+        if (tier >= 0 and tier <= 2) and srms:
             ret[siteName]=srms
     return ret
 
