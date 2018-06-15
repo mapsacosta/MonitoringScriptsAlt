@@ -84,6 +84,27 @@ def getSRMEndpoints():
             ret[siteName]=srms
     return ret
 
+def getInvertedSRMEndpoints():
+    XML   = url.read('http://cmssst.web.cern.ch/cmssst/vofeed/vofeed.xml')
+    XML   = ET.fromstring(XML)
+    sites = XML.findall('atp_site')
+    ret   = dict()
+    for site in sites:
+        groups   = site.findall('group')
+        siteName = None
+        for i in groups:
+            if i.attrib['type'] == 'CMS_Site':
+                siteName = groups[1].attrib['name']
+                break
+        if not siteName: 
+            continue
+        services = site.findall('service')
+        srms = []
+        for j in services:
+            if j.attrib["flavour"] == 'SRM':
+               ret[j.attrib["hostname"]]=siteName
+    return ret
+
 
 
 if __name__ == '__main__':
