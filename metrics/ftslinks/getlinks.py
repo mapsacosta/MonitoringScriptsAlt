@@ -4,11 +4,10 @@ import sys, os
 import json
 import pprint
 
-#endpoints = sites.getSRMEndpoints()
-#for site in endpoints:
-  #print site
-  #print sites.getTier(site)
-  #print endpoints[site]
+endpoints = sites.getInvertedSRMEndpoints()
+for site in endpoints:
+  print site
+  print endpoints[site]
 
 with open('data.json') as f:
   data = json.load(f)
@@ -18,10 +17,23 @@ with open('data.json') as f:
 
 for tier in data['responses']:
   for tag in tier['aggregations']['source']['buckets']:
-    pprint.pprint('--------------------- '+ tag['key']+ '---------------------')
+    source_se=tag['key']
+    #pprint.pprint(tag['key'])
     for dest in tag['dest']['buckets']:
-      pprint.pprint('-->' + dest['key'])
-      pprint.pprint(dest['doc_count'])
+      dest_se=dest['key']
+      #pprint.pprint('-->' + dest['key'])
+      total_jobs = dest['doc_count']
+    #  pprint.pprint("TOTAL: "+str(dest['doc_count']))
       for fts in dest['filestates']['buckets']:
-        print fts['key']+', '+str(fts['doc_count'])
+        status = fts['key']
+        if 'FAILED' in status:
+          failed = fts['doc_count']
+          #pprint.pprint("FAILEDD "+str(failed))
+    #      successrt = float(failed/total_jobs)*100
+        else:
+          successrt = 100
+       
+      print '-- Analyzing pair '+source_se+' --> '+dest_se
+      print successrt
+        #print fts['key']+', '+str(fts['doc_count'])
         
