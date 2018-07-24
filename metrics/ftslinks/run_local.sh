@@ -3,7 +3,10 @@ source init.sh
 OUT=$SSTBASE/output/metrics/ftslinks
 
 if [ ! -d "$OUT" ]; then
-	    mkdir -p $OUT
+      mkdir -p $OUT
     fi
 
-    python  getlinks.py 
+date=$(date "+%Y-%m-%dT%H:%M:%SZ" --utc -d "15 minutes ago")
+echo $date
+
+python eval_fts_links.py --date=$date --outputDir=$OUT
