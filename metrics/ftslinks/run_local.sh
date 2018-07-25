@@ -7,6 +7,5 @@ if [ ! -d "$OUT" ]; then
     fi
 
 date=$(date "+%Y-%m-%dT%H:%M:%SZ" --utc -d "15 minutes ago")
-echo $date
 
 python eval_fts_links.py --date=$date --outputDir=$OUT

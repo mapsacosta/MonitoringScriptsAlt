@@ -47,9 +47,10 @@ def  main():
     print "Retrieving ES data for FTS files from " + str(dateFrom) + " to " + str(dateTo)
 
     data = monitES.getResults(dateFrom,dateTo)
+    print len(data)
     print "Starting process"
     process15Min(data)
-    #dump()
+    dump(dateFrom,OUTPUT_FILE_NAME)
 
 active_sites = []
   
@@ -62,10 +63,14 @@ def siteExists(nsite):
   else:
     return False
 
-def dump():
+def dump(dateFrom,out):
+  rates = []
+  OutputFile = open(out, 'w')
   for site in active_sites:
-    print site.__dict__
-
+    if site.total_files > 0:
+      OutputFile.write(str(dashboard.entry(date = dateFrom.strftime("%Y-%m-%d %H:%M:%S"), name = site.site_name, value = site.srate, color = site.color, url = "https://fts3.cern.ch:8449/fts3/ftsmon/#/?page=3&vo=cms&source_se=&dest_se=&time_window=1"))+'\n')
+  print "\n-- FTS Success rate output written to %s" % out
+  OutputFile.close()
 
 #    next((response for site in self.active_sites if site.site_name == sitename), None)
  #   return response
@@ -77,7 +82,7 @@ def process15Min(data):
       src_protocol=src_data[0]
       src_site = getOwnerSite(src_se)
       if src_site:
-        print "Source start "+src_site
+        #print "Source start "+src_site
         if siteExists(src_site):
           source=siteByName(src_site)
         else:
@@ -89,7 +94,7 @@ def process15Min(data):
           dest_protocol=dest_data[0]
           dest_site = getOwnerSite(dest_se)
           if dest_site:
-            print "Destionation start " + dest_site
+            #print "Destionation start " + dest_site
             if siteExists(dest_site):
               destination=siteByName(dest_site)
             else:
@@ -100,18 +105,18 @@ def process15Min(data):
               status = fts['key']
               n_files = fts['doc_count']
               if status:
-                findGuilt(status,n_files,source,destination)
+                blame(status,n_files,source,destination)
                 continue
               else:
                 continue
                 #source.successful_files += n_jobs
                 #source.total_files += n_jobs
-            #destination.calculate()
-        #source.calculate()
+            destination.calculate()
+        source.calculate()
       else:
         continue
 
-def findGuilt(message,n_files,src,dest):
+def blame(message,n_files,src,dest):
   if "SOURCE" in message:
     src.f_other += n_files
     src.total_files += n_files
@@ -147,12 +152,25 @@ class Site:
     self.f_total = 0
 
     #Success rate before categorizing error messages
-    self.srate = 100.0
+    self.color = "Gray"
+    self.srate = "N/A"
 
   def calculate(self):
     self.f_total = self.f_quota+self.f_permissions+self.f_unreachable+self.f_nosuchfile+self.f_other
+    fl_srate = 0.0
+
     if self.total_files > 0:
-      self.srate = format((1-(self.f_total/self.total_files))*100,'.1f')
+      fl_srate = (1-(self.f_total/self.total_files))*100
+      self.srate = format(fl_srate,'.1f')
+      if fl_srate >= 80.0:
+        self.color = "Green"
+      elif fl_srate >= 40.0 and fl_srate < 80.0:
+        self.color = "Yellow"
+      elif fl_srate < 40.0:
+        self.color = "Red"
+    else:
+      self.srate = "N/A"
+      self.color = "Gray"
 
 def getEndpoints(site):
   try:
