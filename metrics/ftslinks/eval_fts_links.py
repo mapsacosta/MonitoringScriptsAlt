@@ -45,12 +45,18 @@ def  main():
     dateTo = dateFrom + timedelta(minutes=interval)
     OUTPUT_FILE_NAME = os.path.join(options.outputDir,"fts15min.txt")
     print "Retrieving ES data for FTS files from " + str(dateFrom) + " to " + str(dateTo)
-
+    
     data = monitES.getResults(dateFrom,dateTo)
-    print len(data)
-    print "Starting process"
-    process15Min(data)
-    dump(dateFrom,OUTPUT_FILE_NAME)
+    #Enable for debugging
+    #with open('hola.json') as f:
+    #  data = json.load(f)
+
+    if data:
+      print "Got data, processing ...."
+      process15Min(data)
+      dump(dateFrom,OUTPUT_FILE_NAME)
+    else:
+     print "I couldn't fetch any data.. careful with timezones!"
 
 active_sites = []
   
@@ -68,7 +74,11 @@ def dump(dateFrom,out):
   OutputFile = open(out, 'w')
   for site in active_sites:
     if site.total_files > 0:
-      OutputFile.write(str(dashboard.entry(date = dateFrom.strftime("%Y-%m-%d %H:%M:%S"), name = site.site_name, value = site.srate, color = site.color, url = "https://fts3.cern.ch:8449/fts3/ftsmon/#/?page=3&vo=cms&source_se=&dest_se=&time_window=1"))+'\n')
+      print site.__dict__
+      print " -------------- "
+      ssbout = str(dashboard.entry(date = dateFrom.strftime("%Y-%m-%d %H:%M:%S"), name = site.site_name, value = site.srate, color = site.color, url = site.url))+'\n'
+      OutputFile.write(ssbout)
+      print ssbout
   print "\n-- FTS Success rate output written to %s" % out
   OutputFile.close()
 
@@ -87,6 +97,7 @@ def process15Min(data):
           source=siteByName(src_site)
         else:
           source=Site(src_site)
+          source.url="https://fts3.cern.ch:8449/fts3/ftsmon/#/?page=3&vo=cms&source_se="+src['key']+"&dest_se=&time_window=1"
           active_sites.append(source)
         for dest in src['dest']['buckets']:
           dest_data=dest['key'].split("://")
@@ -99,6 +110,7 @@ def process15Min(data):
               destination=siteByName(dest_site)
             else:
               destination=Site(dest_site)
+              destination.url="https://fts3.cern.ch:8449/fts3/ftsmon/#/?page=3&vo=cms&source_se=&dest_se="+dest['key']+"&time_window=1"
               active_sites.append(destination)
             n_files = 0
             for fts in dest['reason']['buckets']:
@@ -108,9 +120,8 @@ def process15Min(data):
                 blame(status,n_files,source,destination)
                 continue
               else:
-                continue
-                #source.successful_files += n_jobs
-                #source.total_files += n_jobs
+                source.successful_files += n_files
+                source.total_files += n_files
             destination.calculate()
         source.calculate()
       else:
@@ -123,9 +134,11 @@ def blame(message,n_files,src,dest):
   elif "DESTINATION" in message:
     dest.f_quota += n_files
     dest.total_files += n_files
-  elif "ipc command failed" in message.lower():
+  elif "transfer" in message.lower():
     src.f_undecided += n_files
+    src.total_files += n_files
     dest.f_undecided += n_files
+    dest.total_files += n_files
   else:
     src.total_files += n_files
     src.successful_files += n_files
@@ -137,6 +150,7 @@ class Site:
     self.site_name = cms_name
     self.endpoints = getEndpoints (cms_name)
     self.tier = sites.getTier(self.site_name)
+    self.url = "" 
 
     #Statistical attributes
     self.total_files = 0

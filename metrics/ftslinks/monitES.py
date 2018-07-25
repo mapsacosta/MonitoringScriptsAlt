@@ -25,15 +25,18 @@ def buildQueryFile(date_from, date_to):
     out.write(grafanaLine+"\n")
     out.write(queryLine+"\n")
     out.close()
+  
+  print "Wrote json query to: "+q_out_fname
 
   return q_out_fname
   
 def fetch(fname):
+  print "Fetching ...."
   endpoint = "https://monit-grafana.cern.ch/api/datasources/proxy/8332/_msearch"
   headers = {"Authorization":"Bearer eyJrIjoiWGdESVczR28ySGVVNFJMMHpRQ0FiM25EM0dKQm5HNTEiLCJuIjoiZnRzX2NsaSIsImlkIjoyNX0=","Content-type": "application/json"}
   compl=file(fname,'rb').read()
-  response = requests.post(endpoint,data=compl,headers=headers).json()
-  return json.loads(json.dumps(response))
+  response = json.loads(json.dumps(requests.post(endpoint,data=compl,headers=headers).json()))
+  return response
 
 def getResults(date_from,date_to):
   return fetch(buildQueryFile(date_from,date_to))
