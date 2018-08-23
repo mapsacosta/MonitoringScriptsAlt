@@ -149,9 +149,9 @@ def whichFTS(sitename):
     return hosts(sitename)
 
 #fetch(True)
-fetch(False)
+#fetch(False)
 #writefile('server')
-writefile()
+#writefile()
 
 if __name__ == '__main__':
   #
@@ -167,9 +167,16 @@ if __name__ == '__main__':
     if argStruct.l and argStruct.f:
         fetch(False)
         writefile()
-    else if argStruct.l and argStruct.s and argStruct.f:
-        fetch(True)
+    elif argStruct.l and argStruct.s and argStruct.f:
+        fetch(False)
         writefile()
         writefile("server")
+    elif argStruct.s and argStruct.f:
+        fetch(False)
+        writefile("server")
+    else:
+        fetch(False)
+        writefile()
+    
 
 
