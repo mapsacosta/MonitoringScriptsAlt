@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # #############################################################################
 # Bourne shell script to wrapper the eval_hc.py python script. It acquires an
 #    execution lock, checks there is a valid Kerberos ticket, AFS token and
@@ -8,17 +8,18 @@ EXC_LOCK=""
 ERR_FILE="/tmp/cmssst_evalFTS_$$.err"
 trap 'exit 1' 1 2 3 15
 trap '(/bin/rm -f ${EXC_LOCK} ${ERR_FILE}) 1> /dev/null 2>&1' 0
-
-
+cd $(dirname $(readlink -f "${BASH_SOURCE[0]}"))
+source init.sh
 
 EMAIL_ADDR="macosta@fnal.gov"
-FTS15MIN_SSB_FILE="/afs/cern.ch/user/c/cmssst/www/hammercloud/fts15min.txt"
+FTS15MIN_SSB_FILE="/afs/cern.ch/user/c/cmssst/www/fts_links/fts15min.txt"
+
 #
 #
 /bin/rm -f ${ERR_FILE} 1>/dev/null 2>&1
 # #############################################################################
 
-
+date=$(date "+%Y-%m-%dT%H:%M:%SZ" --utc -d "15 minutes ago")
 
 # get cmssst/evalFTS_wrapper lock:
 # ===================================
@@ -115,7 +116,8 @@ fi
 
 # evaluate Hammer Cloud results, post SSB file(s) and JSON:
 # =========================================================
-./run.sh
+`dirname $0`/eval_fts.py $date
+#python eval_fts.py $date
 # #############################################################################
 
 
@@ -126,5 +128,6 @@ echo "Releasing lock for cmssst/evalFTS_wrapper"
 /bin/rm ${EXC_LOCK}
 EXC_LOCK=""
 # #############################################################################
+
 
 exit ${RC}
