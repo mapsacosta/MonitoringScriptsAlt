@@ -160,7 +160,7 @@ if __name__ == '__main__':
                            help="Will generate a tab spaced list of sites with the latest FTS server used by the site as known by PhEDEx")
     parserObj.add_argument("-s", dest="s", action="store_true",
                            help="Will generate a summary of usage of FTS servers by CMS sites")
-    parserObj.add_argument("filename", help="Output will be written to a .txt file with filename as name")
+    parserObj.add_argument("--filename", help="Output will be written to a .txt file with filename as name")
 
 #    parserObj.add_argument("-f", dest="filename", action="store_true",
  #                          help="If the user requieres, output will be written in the file specified")
