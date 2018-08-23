@@ -25,8 +25,8 @@ import urllib3
 import pprint
 import shlex
 
-def fetch(writeFile):
-  if writeFile:
+def fetch(writeFTSinfo):
+  if writeFTSinfo:
       urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
       response = json.loads(json.dumps(requests.get('https://cmsweb.cern.ch/phedex/datasvc/json/prod/agentlogs?node=T*', verify=False).json()))
       with open('data.json', 'w+') as f:
@@ -86,10 +86,10 @@ def countTier(sList):
             tier['3'] += 1
     return tier
 
-def writefile(param='list',file=sys.stdout):
+def writeFTSinfo(param='list',file=sys.stdout):
   now = time.strftime("%Y-%b-%d %H:%M:%S UTC", time.gmtime())
   file.write(("#\n# List of FTS servers curr"
-    "ently being used by CMS PhEDEx endpoints. \n# @author macostaf \n# Written at %s by %s\n#" +
+    "ently being used by CMS PhEDEx endpoints. \n# @author Maria A. (macostaf) \n# Written at %s by %s\n#" +
     " in account %s on node %s\n# " +
     " Maintained by cms-comp-ops-site-support-team@NOSPAMPLEASE.cern.ch\n"+
     "# ===========================================\n\n") %
@@ -150,33 +150,38 @@ def whichFTS(sitename):
 
 #fetch(True)
 #fetch(False)
-#writefile('server')
-#writefile()
+#writeFTSinfo('server')
+#writeFTSinfo()
 
 if __name__ == '__main__':
   #
     parserObj = argparse.ArgumentParser(description="Script that generates information on FTS servers and Site within CMS ")
-    parserObj.add_argument("-l", dest="list", action="store_true",
+    parserObj.add_argument("-l", dest="l", action="store_true",
                            help="Will generate a tab spaced list of sites with the latest FTS server used by the site as known by PhEDEx")
-    parserObj.add_argument("-s", dest="server", action="store_true",
+    parserObj.add_argument("-s", dest="s", action="store_true",
                            help="Will generate a summary of usage of FTS servers by CMS sites")
-    parserObj.add_argument("-f", dest="filename", action="store_true",
-                           help="If the user requieres, output will be written in the file specified")
+    parserObj.add_argument("filename", help="Output will be written to a .txt file with filename as name")
+
+#    parserObj.add_argument("-f", dest="filename", action="store_true",
+ #                          help="If the user requieres, output will be written in the file specified")
 
     argStruct = parserObj.parse_args()
-    if argStruct.l and argStruct.f:
+    if argStruct.l and argStruct.filename:
         fetch(False)
-        writefile()
-    elif argStruct.l and argStruct.s and argStruct.f:
+        fileObj = open(argStruct.filename+".txt","w+")
+        writeFTSinfo("list",fileObj)
+    elif argStruct.l and argStruct.s and argStruct.filename:
         fetch(False)
-        writefile()
-        writefile("server")
-    elif argStruct.s and argStruct.f:
+        fileObj_list = open(argStruct.filename+"_list.txt","w+")
+        writeFTSinfo("list",fileObj_list)
+        fileObj_list = open(argStruct.filename+"_server.txt","w+")
+        writeFTSinfo("server",fileObj_server)
+    elif argStruct.s and argStruct.filename:
         fetch(False)
-        writefile("server")
+        fileObj = open(argStruct.filename+".txt","w+")
+        writeFTSinfo("server",fileObj)
     else:
         fetch(False)
-        writefile()
-    
-
+        writeFTSinfo()
+        writeFTSinfo("server")
 
