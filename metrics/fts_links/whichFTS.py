@@ -1,4 +1,13 @@
 #!/usr/bin/python
+# ########################################################################### #
+# python script to query PhEDEX agent logs in order to obtain recent info-    #
+# rmation about FTS servers usage by CMS sites. It can generate a file        #
+# or write to stdout. There are two possible formats:                         #
+#   > List: Tab spaced list of sites and its correspondent FTS server         #
+#   > Server: A summary of the usage of FTS serverw within the CMS VO         #
+# @author: Maria A. CMS SST                                                   #
+# Last modification:2018-Aug-21  Maria P. Acosta                              #
+# ########################################################################### #
 
 from __future__ import division
 
@@ -6,8 +15,8 @@ import dateutil.parser
 import getpass, socket
 import traceback
 import time, calendar
-from optparse import OptionParser
 import requests
+import argparse
 from decimal import *
 from datetime import datetime, timedelta
 import sys, os
@@ -144,5 +153,23 @@ fetch(False)
 #writefile('server')
 writefile()
 
+if __name__ == '__main__':
+  #
+    parserObj = argparse.ArgumentParser(description="Script that generates information on FTS servers and Site within CMS ")
+    parserObj.add_argument("-l", dest="list", action="store_true",
+                           help="Will generate a tab spaced list of sites with the latest FTS server used by the site as known by PhEDEx")
+    parserObj.add_argument("-s", dest="server", action="store_true",
+                           help="Will generate a summary of usage of FTS servers by CMS sites")
+    parserObj.add_argument("-f", dest="filename", action="store_true",
+                           help="If the user requieres, output will be written in the file specified")
+
+    argStruct = parserObj.parse_args()
+    if argStruct.l and argStruct.f:
+        fetch(False)
+        writefile()
+    else if argStruct.l and argStruct.s and argStruct.f:
+        fetch(True)
+        writefile()
+        writefile("server")
 
 
