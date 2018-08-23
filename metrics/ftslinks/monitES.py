@@ -11,8 +11,7 @@ import os
 
 
 def buildQueryFile(date_from, date_to):
-  
-  #Convert input dates to str in a format ES can understand
+  #Convert input dates to str in a format ES can understand through Grafana
   dateFormat="%Y-%m-%dT%H:%M:%S"
   date_from_str = datetime.strftime(date_from, dateFormat)
   date_to_str = datetime.strftime(date_to, dateFormat)
@@ -35,7 +34,6 @@ def fetch(fname):
   response = json.loads(json.dumps(requests.post(endpoint,data=compl,headers=headers).json()))
   os.remove(fname)
   return response
- 
 
 def getResults(date_from,date_to):
   return fetch(buildQueryFile(date_from,date_to))
