@@ -38,7 +38,8 @@ import pprint
 
 
 
-EVFTS_SSB_DIR = "."
+#EVFTS_SSB_DIR = "."
+EVFTS_SSB_DIR = "/afs/cern.ch/user/c/cmssst/www/fts_links"
 EVFTS_JSON_DIR = "./cache"
 EVFTS_MONIT_URL = "http://monit-metrics-dev.cern.ch:10012/"
 # ########################################################################### #
@@ -48,43 +49,47 @@ class Site:
         self.site_name = cms_name
         self.endpoints = self.getEndpoints()
         self.tier = sites.getTier(self.site_name)
-        self.url = ""
     #In progress -> secondary
-        self.fts_server = "https://fts3.cern.ch:8449/"
+        self.fts_server = "https://testurl.cern.ch/"
 
     #Statistical attributes
-        self.total_files = 0
-        self.successful_files = 0
-
+        self.totalrecords = 0
+        self.successful = 0
+        self.totalfailed = 0
+        
     #Number of failed fts files categorized by type (undecided is not counted in the final rate)
-        self.f_undecided = 0
-        self.f_quota = 0
-        self.f_permissions = 0
-        self.f_unreachable = 0
-        self.f_nosuchfile = 0
-        self.f_other = 0
-        self.f_total = 0
+        self.failed = dict()
+        self.failed['undecided']=0
+        self.failed['quota']=0
+        self.failed['permissions']=0
+        self.failed['unreachable']=0
+        self.failed['file']=0
+        self.failed['other']=0
 
     #Success rate before categorizing error messages
         self.status = ""
-        self.srate = 0.0
+        self.quality = 0.0
 
     def calculate(self):
-        self.f_total = self.f_quota+self.f_permissions+self.f_unreachable+self.f_nosuchfile+self.f_other
-        fl_srate = 0.0
+        for k in self.failed.iterkeys():
+          self.totalfailed+=self.failed[k]
 
-        if self.total_files > 0:
-            self.srate = (1-(self.f_total/self.total_files))
+        fl_quality = 0.0
 
-        if self.srate >= 0.8:
+        if self.totalrecords > 0:
+            self.quality = (1-(self.totalfailed/self.totalrecords))
+        else:
+            self.quality = -1
+            self.color = "white"
+        if self.quality >= 0.8:
             self.status = "ok"
-        elif self.srate >= 0.4 and fl_srate < 0.8:
+        elif self.quality >= 0.4 and self.quality < 0.8:
             self.status = "warning"
-        elif self.srate < 0.4:
+        elif self.quality < 0.4:
             self.status = "error"
         else:
-           self.srate = 0.0
-           self.color = "Gray"
+           self.quality = -1
+           self.color = "white"
 
     def getEndpoints(self):
         try:
@@ -105,6 +110,7 @@ class ssbMetric:
         self.time_interval = timeInterval
         self.data = {}
         self.active_sites=[]
+        self.count=0
 
     def addEntry(self, name, status, value):
         if name not in self.data:
@@ -112,9 +118,9 @@ class ssbMetric:
 
     def addEntryFromSite(self, site):
         #if site.site_name not in self.data:
-        self.data[site.site_name] = {'status': site.status, 'value': site.srate}
-        print "Appending " + site.site_name
-        pprint.pprint(self.data[site.site_name])
+        self.data[site.site_name] = {'status': site.status, 'value': site.quality}
+        #print "Appending " + site.site_name
+        #pprint.pprint(self.data[site.site_name])
 
     def entries(self):
         return sorted(self.data.keys())
@@ -122,15 +128,23 @@ class ssbMetric:
     def isEmpty(self):
         return (not bool(self.data))
 
-    def writeSSBfile(self, file=sys.stdout):
-        UTCStart = time.strftime("%Y-%m-%d+%H:%M",
-                       time.gmtime(self.time_bin * self.time_interval))
-        UTCEnd   = time.strftime("%Y-%m-%d+%H:%M",
-                       time.gmtime((self.time_bin + 1) * self.time_interval))
-        if ( self.metric_name == "hc15min" ):
+    def writeSSBfile(self,dateFrom, file=sys.stdout):
+        dateFormat="%Y-%m-%d %H:%M:%S"
+        date_from_str = datetime.strftime(dateFrom, dateFormat)
+        dateFr = dateFrom.strftime('%s.%f')
+        d_in_ms = int(float(dateFr)*1000)
+        d_in_ns = int(float(dateFr)*1000000000)
+        #print d_in_ns
+        d_in_ns_s=str(int(d_in_ns))
+        dateTo = dateFrom + timedelta(minutes=15)
+        date_to_str = datetime.strftime(dateTo, dateFormat)
+        if ( self.metric_name == "fts15min" ):
             lbl = "15 Minutes"
-        elif ( self.metric_name == "hc1day" ):
+        elif ( self.metric_name == "fts1day" ):
             lbl = "1 Day"
+        elif ( self.metric_name == "fts1hour" ):
+            lbl = "1 Hour"
+        
         else:
             lbl = "\"%s\"" % self.metric_name
         now = time.strftime("%Y-%b-%d %H:%M:%S UTC", time.gmtime())
@@ -141,8 +155,7 @@ class ssbMetric:
             "===========================================\n#\n") %
             (lbl, now, sys.argv[0], getpass.getuser(), socket.gethostname()))
 
-        timeStamp = time.strftime("%Y-%m-%d %H:%M:%S",
-            time.gmtime(self.time_bin * self.time_interval))
+        timeStamp = date_from_str
         for siteName in self.entries():
             if self.data[siteName]['value'] is not None:
                 value = self.data[siteName]['value'] * 100.0
@@ -156,18 +169,27 @@ class ssbMetric:
                 colour = "red"
             else:
                 colour = "white"
-            url = "fts3.cern.ch"
+            url = "testURL.cern.ch"
             #
-            file.write("%s\t%s\t%.1f\t%s\t%s\n" %
-                (timeStamp, siteName, value, colour, url))
+            print lbl+" "+siteName+" value="+str(value)+",colour="+colour+" "+date_from_str
+            if value >= 0:
+                file.write("%s\t%s\t%.1f\t%s\t%s\n" %
+                    (timeStamp, siteName, value, colour, url))
+            else:
+                file.write("%s\t%s\tN/A\twhite\t%s\n" %
+                    (timeStamp, siteName, url))
 
-    def updateSSB(self):
-        filePath = os.path.join(EVFTS_SSB_DIR, self.metric_name + ".txt")
+        print "Total records = "+str(self.count)+" "+date_from_str
+
+    def updateSSB(self,dateFrom):
+        dateFormat="%Y-%m-%dT%H:%M:%S"
+        date_from_str = datetime.strftime(dateFrom, dateFormat)
+        filePath = os.path.join(EVFTS_SSB_DIR, self.metric_name +".txt")
         #
         try:
             fileObj = open(filePath + "_new", 'w')
             try:
-                self.writeSSBfile(fileObj)
+                self.writeSSBfile(dateFrom,fileObj)
                 myRename = True
             except:
                 myRename = False
@@ -224,7 +246,7 @@ class ssbMetric:
             try:
                 fileObj.write( jsonString )
                 successFlag = True
-                logging.info("JSON string written to file in cache area")
+                #logging.info("JSON string written to file in cache area")
             except:
                 fileName = os.path.basename(filePath)
                 logging.error("[E]: Failed to write JSON file %s to cache area"
@@ -274,24 +296,28 @@ class ssbMetric:
             #    cert=('/path/client.cert', '/path/client.key'))
             #requests.post('http://some.url/streamed', data=f, verify=False,
             #    cert='/path/client.cert')
-        except requests.exceptions.ConnectionError:
-            logging.error("[E]: Failed to upload JSON, connection error")
-        except requests.exceptions.Timeout:
-            logging.error("[E]: Failed to upload JSON, reached 15 sec timeout")
-        except Exception as excptn:
-            logging.error("[E]: Failed to upload JSON, %s" % str(excptn))
-        else:
-            if ( requestsObj.status_code == requests.codes.ok ):
+            pass
+        #except requests.exceptions.ConnectionError:
+         #   logging.error("[E]: Failed to upload JSON, connection error")
+        #except requests.exceptions.Timeout:
+         #   logging.error("[E]: Failed to upload JSON, reached 15 sec timeout")
+        
+        #except Exception as excptn:
+         #   logging.error("[E]: Failed to upload JSON, %s" % str(excptn))
+       #else:
+        except:
+            #if ( requestsObj.status_code == requests.codes.ok ):
                 successFlag = True
-                logging.info("JSON string uploaded to MonIT")
-            else:
-                logging.error("[E]: Failed to upload JSON, %d \"%s\"" %
-                          requestsObj.status_code, requestsObj.text)
+            #    logging.info("JSON string uploaded to MonIT")
+            #else:
+            #    logging.error("[E]: Failed to upload JSON, %d \"%s\"" %
+             #             requestsObj.status_code, requestsObj.text)
         #
         return successFlag
 ####################
       #Should dateto be added??
     def evaluateFTS(self, dateFrom, interval=15):
+        #dateTo = dateFrom + timedelta(minutes=interval)
         dateTo = dateFrom + timedelta(minutes=interval)
         #OUTPUT_FILE_NAME = os.path.join(options.outputDir,"fts15min.txt")
         print "Retrieving ES data for FTS files from " + str(dateFrom) + " to " + str(dateTo)
@@ -299,6 +325,7 @@ class ssbMetric:
             data = monitES.getResults(dateFrom,dateTo)
             logging.info("[I] Processing monit data ....")
             for tier in data['responses']:
+                count = 0
                 for src in tier['aggregations']['source']['buckets']:
                     src_data=src['key'].split("://")
                     if len(src_data) < 2:
@@ -308,7 +335,6 @@ class ssbMetric:
                     src_protocol=src_data[0]
                     src_site = self.getOwnerSite(src_se)
                     if src_site:
-                        logging.info("[I] Source start: "+src_site)
                         #print "Source start "+src_site
                         if self.siteExists(src_site):
                             source=self.siteByName(src_site)
@@ -316,8 +342,7 @@ class ssbMetric:
                             source=Site(src_site)
                             self.active_sites.append(source)
 
-                        print len(self.active_sites)
-
+                        #print len(self.active_sites)
                         for dest in src['dest']['buckets']:
                             dest_data=dest['key'].split("://")
                             if len(dest_data) < 2:
@@ -327,7 +352,6 @@ class ssbMetric:
                             dest_protocol=dest_data[0]
                             dest_site = self.getOwnerSite(dest_se)
                             if dest_site:
-                                logging.info("[I] Destination start: "+dest_site)
 
                                 if self.siteExists(dest_site):
                                     destination=self.siteByName(dest_site)
@@ -338,27 +362,37 @@ class ssbMetric:
                                 for fts in dest['reason']['buckets']:
                                     status = fts['key']
                                     n_files = fts['doc_count']
+                                    count += n_files
                                     if status:
                                         self.blame(status,n_files,source,destination)
                                         continue
                                     else:
-                                        source.successful_files += n_files
-                                        source.total_files += n_files
-                                destination.calculate()
-                        source.calculate()
+                                        source.successful += n_files
+                                        source.totalrecords += n_files
                     else:
                         continue
-
+            self.count = count
         except Exception:
             print(traceback.format_exc())
         self.finish()
         logging.info("[I] FTS%s results were successfully stored")
 
     def finish(self):
-        print len(self.active_sites)
-        for site in self.active_sites:
-            site.calculate()
-            self.addEntryFromSite(site)
+        for vof_site in sites.getSites():
+            obj = self.siteByName(vof_site)
+            if obj:
+                obj.calculate()
+                self.addEntryFromSite(obj)   
+            else:
+                self.addEntry(vof_site,"white",-1.0)
+
+    #def finish(self):
+    #    for site in self.active_sites:
+    #        site.calculate()
+    #        self.addEntryFromSite(site)
+            #print site.totalrecords
+            #pprint.pprint(site.failed)
+
 
     def siteByName(self,sitename):
         return next(iter(filter(lambda site: site.site_name == sitename,  self.active_sites)),None) 
@@ -376,20 +410,38 @@ class ssbMetric:
             return None
 
     def blame(self,message,n_files,src,dest):
-        if "SOURCE" in message:
-            src.f_other += n_files
-            src.total_files += n_files
-        elif "DESTINATION" in message:
-            dest.f_quota += n_files
-            dest.total_files += n_files
-        elif "transfer" in message.lower():
-            src.f_undecided += n_files
-            src.total_files += n_files
-            dest.f_undecided += n_files
-            dest.total_files += n_files
-        else:
-            src.total_files += n_files
-            src.successful_files += n_files
+       category = message.split('[')[0].strip()
+       #print category
+       if "SOURCE" in category:
+            self.failType(message,n_files,src)
+       elif "DESTINATION" in category:
+            self.failType(message,n_files,dest)
+       elif "TRANSFER" in category:
+            self.failType(message,n_files,src)
+            #dest.failed['other'] += n_files
+            #dest.totalrecords += n_files
+       else:
+            src.totalrecords += n_files
+            src.successful += n_files
+
+    def failType (self,message,n_files,site):
+      srch = message.lower()
+      site.totalrecords += n_files
+      if 'over-load limit' or 'connection limit' in srch:
+          site.failed['quota'] += n_files
+          return
+      if 'timeout' or 'unreachable' or 'timed out' in srch:
+          site.failed['unreachable'] += n_files
+          return
+      elif 'no such file' or 'an end of file' or 'file exists' in srch:
+          site.failed['file'] += n_files
+          return
+      elif 'protocol family' in srch:
+          site.failed['other'] += n_files
+          return
+      else:
+          site.failed['other'] += n_files
+          return
 
 # ########################################################################### #
 
@@ -402,13 +454,12 @@ def evalFTSpost(metricName, dateFrom, interval, ssbFlag, monitFlag):
     #
     metricObj.evaluateFTS(dateFrom, interval)
     if ( metricObj.isEmpty() ):
-        print "EMPTY!!!"
         del metricObj
         return
     #
     if ssbFlag:
         # update the SSB file with the new HC 15min results:
-        metricObj.updateSSB()
+        metricObj.updateSSB(dateFrom)
     #
     # flatten ssbMetric object into JSON string:
     jsonString = metricObj.compJSONstring()
@@ -437,7 +488,7 @@ def verifyFTS15min(dateFrom, interval, postFlag):
 #CHECK THIS??
 #wth is timebin -> making it 1000 (?) for now
     #metricObj = ssbMetric("fts15min", timeBin, 900)
-    metricObj = ssbMetric("fts15min", 10000, 900)
+    metricObj = ssbMetric("fts15min", 1000, 900)
     #
     # query CMS job dashboard, evaluate HC 15min result, and fill metric:
     metricObj.evaluateFTS(dateFrom,interval)
@@ -583,7 +634,7 @@ if __name__ == '__main__':
     if argStruct.timeSpec is None:
     #if argStruct.timeSpec:
         # no argument
-        dateFrom = datetime.now().time()
+        dateFrom = datetime.now()
         #
         if ( argStruct.qhour ):
             # evaluate HC 15min results for time bin that started 30 min ago
@@ -595,17 +646,18 @@ if __name__ == '__main__':
             # check HC 15min results for time bin that started 75 min ago
             # ===========================================================
             # evaluate HC 15min and upload if different from initial evaluation
-            verifyFTS15min(dateFrom, interval, argStruct.post)
+            verifyFTS15min(dateFrom, 15, argStruct.post)
         #
         #
-        if ( argStruct.hour ) and ( int( timeStamp / 900 ) % 4 == 0 ):
+        #if ( argStruct.hour ) and ( int( timeStamp / 900 ) % 4 == 0 ):
+        if ( argStruct.hour ):
             # evaluate HC 1hour results for time bin that started 2 hours ago
             # ===============================================================
             #evalHCpost("hc1hour", timeBin, 3600, False, argStruct.post, True)
             evalFTSpost("fts1hour", dateFrom, 60, False, argStruct.post)
         #
         #
-        if ( argStruct.qday ) and ( int( timeStamp / 900 ) % 24 == 4 ):
+        if ( argStruct.qday ):
             # evaluate HC 6hour results for time bin that started 7 hours ago
             # ===============================================================
             #evalHCpost("hc6hour", timeBin, 21600, False, argStruct.post, False)
@@ -635,7 +687,8 @@ if __name__ == '__main__':
             evalFTSpost("fts15min", dateFrom, 15, argStruct.post, argStruct.post)
         #
         #
-        if ( argStruct.hour ) and ( int( timeStamp / 900 ) % 4 == 0 ):
+        #if ( argStruct.hour ) and ( int( timeStamp / 900 ) % 4 == 0 ):
+        if ( argStruct.hour ):
             # evaluate/upload HC 1hour results for time bin
             # =============================================
             # evaluate HC 1hour, write and upload JSON
@@ -643,28 +696,13 @@ if __name__ == '__main__':
                              seconds=datetmp.second,
                              microseconds=datetmp.microsecond)
  
-            evalFTSpost("fts1hour", dateFrom, 60, False, argStruct.post)
-        #
-        #
-        if ( argStruct.qday ) and ( int( timeStamp / 900 ) % 24 == 0 ):
-            # evaluate/upload HC 6hour results for time bin
-            # =============================================
-            # evaluate HC 6hour, write and upload JSON
-            evalFTSpost("fts6hour", dateFrom, 360, False, argStruct.post)
-        #
-        #
-        #if ( argStruct.day ) and ( int( timeStamp / 900 ) % 96 == 0 ):
-            # evaluate/upload HC 1day results for time bin
-            # ============================================
-        #    timeBin = int( timeStamp / 86400 )
-            # evaluate HC 1day, write and upload JSON
-        #    evalHCpost("hc1day", timeBin, 86400, False, argStruct.post, False)
+            evalFTSpost("fts1hour", dateFrom, 60, argStruct.post, argStruct.post)
     #
     #
     # re-upload any previous JSON post failures
     # =========================================
     timeStamp = time.time()
-    print timeStamp
+    #print timeStamp
 
     if ( argStruct.post ):
         uploadFTScache(timeStamp, argStruct.qhour, argStruct.hour,
@@ -681,22 +719,3 @@ if __name__ == '__main__':
     
     #import pdb; pdb.set_trace()
 
-#####################
-    #Misc
-####################
-
-def blame(message,n_files,src,dest):
-    if "SOURCE" in message:
-        src.f_other += n_files
-        src.total_files += n_files
-    elif "DESTINATION" in message:
-        dest.f_quota += n_files
-        dest.total_files += n_files
-    elif "transfer" in message.lower():
-        src.f_undecided += n_files
-        src.total_files += n_files
-        dest.f_undecided += n_files
-        dest.total_files += n_files
-    else:
-        src.total_files += n_files
-        src.successful_files += n_files
